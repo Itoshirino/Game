@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-black text-slate-100 select-none overflow-hidden">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ASTRON-V // MILITARY COMBAT TERMINAL [AAA THREE.JS EDITION]</title>
+
+  <!-- Technical SEO & Core Web Vitals Optimization -->
+  <meta name="description" content="Элитный космический 3D-симулятор истребителя на Three.js, кастомных шейдерах постобработки, физике частиц и системе распределения энергии.">
+  <meta name="keywords" content="Three.js, WebGL, Custom Shaders, Chromatic Aberration, Postprocessing, Particle Physics, Cyberpunk Cockpit, Shockwave">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#020617">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ASTRON-V // ADVANCED 3D COMBAT TERMINAL">
+  <meta property="og:description" content="Кастомные шейдеры, ударные волны, физика частиц и боевой тактический HUD.">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80">
+
+  <!-- Preconnect & DNS-Prefetch for 0.1s Zero Latency Boot -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Google Fonts: Orbitron, Share Tech Mono, Rajdhani -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <!-- CDN Dependencies -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tactical: {
+              cyan: '#00f3ff',
+              amber: '#f59e0b',
+              red: '#ef4444',
+              emerald: '#10b981',
+              violet: '#818cf8',
+              obsidian: '#02040a'
+            }
+          },
+          fontFamily: {
+            hud: ['Orbitron', 'sans-serif'],
+            mono: ['"Share Tech Mono"', 'monospace'],
+            tact: ['Rajdhani', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Zero Layout Shift & GPU Acceleration */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background-color: #000000;
+      color: #f8fafc;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    .font-hud { font-family: 'Orbitron', sans-serif; }
+    .font-term { font-family: 'Share Tech Mono', monospace; }
+
+    /* WebGL Canvas */
+    #renderCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+
+    /* Military HUD Glass Panels */
+    .terminal-panel {
+      background: linear-gradient(135deg, rgba(3, 7, 18, 0.85) 0%, rgba(2, 6, 23, 0.92) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0, 243, 255, 0.06);
+      position: relative;
+    }
+
+    /* Corner Targeting Crosshairs */
+    .mil-brackets {
+      position: relative;
+    }
+    .mil-brackets::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: -1px; width: 8px; height: 8px;
+      border-top: 2px solid #00f3ff;
+      border-left: 2px solid #00f3ff;
+      pointer-events: none;
+    }
+    .mil-brackets::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; right: -1px; width: 8px; height: 8px;
+      border-bottom: 2px solid #00f3ff;
+      border-right: 2px solid #00f3ff;
+      pointer-events: none;
+    }
+
+    /* CRT Edge Curvature Vignette */
+    .crt-vignette {
+      background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.75) 85%, #000000 100%);
+      pointer-events: none;
+    }
+
+    /* Damage Red Glitch Screen Border */
+    #criticalGlitchOverlay {
+      box-shadow: inset 0 0 80px rgba(239, 68, 68, 0.5);
+      border: 2px solid rgba(239, 68, 68, 0.6);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease-out;
+    }
+
+    /* Interactive Military Button */
+    .mil-btn {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    .mil-btn:hover {
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+      border-color: #00f3ff;
+      transform: translateY(-1px);
+    }
+    .mil-btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+    .mil-btn::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.25), transparent);
+      transition: left 0.35s ease;
+    }
+    .mil-btn:hover::after {
+      left: 100%;
+    }
+
+    /* Custom Terminal Scrollbar */
+    .custom-scroll::-webkit-scrollbar { width: 3px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 10, 20, 0.6); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.45); border-radius: 2px; }
+
+    /* Tactical Pip Bar */
+    .pip-active {
+      background-color: #00f3ff;
+      box-shadow: 0 0 8px #00f3ff;
+    }
+    .pip-inactive {
+      background-color: rgba(30, 41, 59, 0.8);
+    }
+  </style>
+</head>
+<body class="relative w-full h-full bg-black select-none text-slate-100">
+
+  <!-- 1. THREE.JS POSTPROCESSING CANVAS -->
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- 2. CRT & CRITICAL GLITCH OVERLAYS -->
+  <div class="absolute inset-0 z-20 crt-vignette pointer-events-none"></div>
+  <div id="criticalGlitchOverlay" class="absolute inset-0 z-20 pointer-events-none"></div>
+
+  <!-- 3. TARGET LOCKING BOX IN 3D SPACE (Dynamic CSS tracking) -->
+  <div id="targetLockBox" class="absolute z-25 pointer-events-none border-2 border-red-500/80 rounded w-16 h-16 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-150 opacity-0 flex flex-col justify-between p-1 shadow-[0_0_15px_rgba(239,68,68,0.7)]">
+    <div class="flex justify-between items-center text-[8px] font-term text-red-400">
+      <span>LOCK</span>
+      <span id="targetLockDist">120M</span>
+    </div>
+    <div class="w-full text-center text-[9px] font-hud font-bold text-red-300">THREAT</div>
+  </div>
+
+  <!-- 4. FLOATING COMBAT NOTIFICATIONS -->
+  <div id="combatAlertsContainer" class="absolute inset-0 z-30 pointer-events-none overflow-hidden"></div>
+
+  <!-- ========================================================= -->
+  <!-- 5. TACTICAL COMBAT HUD OVERLAY (Cyberpunk Star Citizen)   -->
+  <!-- ========================================================= -->
+  <div class="absolute inset-0 z-30 flex flex-col justify-between p-3 md:p-6 pointer-events-none">
+
+    <!-- TOP TELEMETRY STATUS BAR -->
+    <header class="flex items-center justify-between pointer-events-auto">
+      
+      <!-- Ship Designation & Defense Integrity -->
+      <div class="flex items-center space-x-3 terminal-panel px-4 py-2 rounded-xl mil-brackets">
+        <div class="relative flex h-3 w-3">
+          <span id="systemStatusDotPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+          <span id="systemStatusDot" class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-hud font-extrabold text-xs md:text-sm tracking-wider text-cyan-400">ASTRON-V // STRIKE FIGHTER</span>
+            <span id="combatStatusBadge" class="px-1.5 py-0.5 rounded text-[10px] font-term uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/40">COMBAT READY</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-term tracking-widest">
+            FPS: <span id="fpsReadout" class="text-emerald-400 font-bold">60</span> • ДИСТАНЦИЯ: <span id="distTopReadout" class="text-cyan-300">0 КМ</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Center Threat Status -->
+      <div id="centerThreatTicker" class="hidden lg:flex items-center space-x-2 terminal-panel px-6 py-2 rounded-full border-cyan-500/30 text-xs font-term text-cyan-300 tracking-wider">
+        <i data-lucide="crosshair" class="w-4 h-4 text-cyan-400 animate-spin" style="animation-duration: 10s;"></i>
+        <span id="tickerMessage">СИСТЕМА УПРАВЛЕНИЯ ОГНЕМ: ОРУДИЯ ЗАХВАТА АКТИВНЫ [ПРОБЕЛ / ЛКМ]</span>
+      </div>
+
+      <!-- Utility Toggles -->
+      <div class="flex items-center space-x-2">
+        <button id="audioToggleBtn" class="terminal-panel mil-btn p-2.5 rounded-xl border-cyan-500/40 text-cyan-300 group" title="Звук (Mute/Unmute)">
+          <i id="audioIcon" data-lucide="volume-2" class="w-4 h-4 text-cyan-400 group-hover:scale-110 transition"></i>
+        </button>
+        <button id="helpGuideBtn" class="terminal-panel mil-btn p-2.5 rounded-xl border-cyan-500/40 text-cyan-300 group" title="Инструкция тактики">
+          <i data-lucide="help-circle" class="w-4 h-4 text-cyan-400 group-hover:scale-110 transition"></i>
+        </button>
+        <button id="resetCombatBtn" class="terminal-panel mil-btn p-2.5 rounded-xl border-cyan-500/40 text-slate-400 hover:text-rose-400 group" title="Перезагрузка миссии">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 group-hover:rotate-180 transition duration-500"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MIDDLE COCKPIT FLIGHT INSTRUMENTS -->
+    <div class="grid grid-cols-12 gap-4 flex-1 items-center my-2 pointer-events-none">
+      
+      <!-- LEFT COCKPIT: POWER GRID & TELEMETRY -->
+      <div class="col-span-12 md:col-span-4 lg:col-span-3 flex flex-col space-y-3 pointer-events-auto">
+        
+        <!-- POWER GRID CONTROLLER (Star Citizen Pips System) -->
+        <div class="terminal-panel p-4 rounded-2xl mil-brackets">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+              <span class="font-hud text-xs font-bold tracking-wider text-slate-200">РАСПРЕДЕЛЕНИЕ ПИТАНИЯ</span>
+            </div>
+            <span id="activePowerModeBadge" class="text-[10px] font-hud px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">БАЛАНС</span>
+          </div>
+
+          <!-- Engines Power Pip Row -->
+          <div class="mb-2.5">
+            <div class="flex justify-between items-center text-[11px] font-term mb-1">
+              <span class="text-cyan-400 font-bold">[1] ДВИГАТЕЛИ (ENG)</span>
+              <span id="engPercentText" class="text-cyan-300">33%</span>
+            </div>
+            <div class="grid grid-cols-8 gap-1 h-2">
+              <div class="pip-active rounded-sm"></div>
+              <div class="pip-active rounded-sm"></div>
+              <div class="pip-active rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+            </div>
+          </div>
+
+          <!-- Shields Power Pip Row -->
+          <div class="mb-2.5">
+            <div class="flex justify-between items-center text-[11px] font-term mb-1">
+              <span class="text-indigo-400 font-bold">[2] ЩИТЫ (SHD)</span>
+              <span id="shdPercentText" class="text-indigo-300">33%</span>
+            </div>
+            <div class="grid grid-cols-8 gap-1 h-2">
+              <div class="pip-active rounded-sm !bg-indigo-400 !shadow-[0_0_8px_#818cf8]"></div>
+              <div class="pip-active rounded-sm !bg-indigo-400 !shadow-[0_0_8px_#818cf8]"></div>
+              <div class="pip-active rounded-sm !bg-indigo-400 !shadow-[0_0_8px_#818cf8]"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+            </div>
+          </div>
+
+          <!-- Sensors Power Pip Row -->
+          <div>
+            <div class="flex justify-between items-center text-[11px] font-term mb-1">
+              <span class="text-teal-400 font-bold">[3] СКАНЕРЫ (SNS)</span>
+              <span id="snsPercentText" class="text-teal-300">33%</span>
+            </div>
+            <div class="grid grid-cols-8 gap-1 h-2">
+              <div class="pip-active rounded-sm !bg-teal-400 !shadow-[0_0_8px_#2dd4bf]"></div>
+              <div class="pip-active rounded-sm !bg-teal-400 !shadow-[0_0_8px_#2dd4bf]"></div>
+              <div class="pip-active rounded-sm !bg-teal-400 !shadow-[0_0_8px_#2dd4bf]"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+              <div class="pip-inactive rounded-sm"></div>
+            </div>
+          </div>
+          
+          <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-800 text-[10px] font-term text-slate-400">
+            <span>ПЕРЕКЛЮЧЕНИЕ: <strong>[1] [2] [3]</strong></span>
+            <span class="text-cyan-400">[0] СБРОС В БАЛАНС</span>
+          </div>
+        </div>
+
+        <!-- FUEL & DISTANCE TELEMETRY -->
+        <div class="terminal-panel p-4 rounded-2xl mil-brackets">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="flame" class="w-4 h-4 text-amber-400 animate-pulse"></i>
+              <span class="font-hud text-xs font-semibold tracking-wider text-slate-200">ТОПЛИВО (FUEL)</span>
+            </div>
+            <span id="fuelReadout" class="font-hud text-lg font-bold text-cyan-300">100%</span>
+          </div>
+
+          <!-- Segmented Fuel Bar -->
+          <div class="w-full bg-slate-950 h-3.5 rounded p-0.5 border border-cyan-500/30 relative overflow-hidden mb-2">
+            <div id="fuelBarFill" class="h-full rounded bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-300 shadow-[0_0_12px_rgba(0,243,255,0.8)] transition-all duration-300" style="width: 100%;"></div>
+          </div>
+
+          <div class="flex items-baseline justify-between border-t border-slate-800 pt-2">
+            <div>
+              <span class="text-[10px] font-term text-slate-400 block">ДИСТАНЦИЯ</span>
+              <span id="distValueText" class="font-hud text-2xl font-black text-white">0</span>
+              <span class="text-xs font-term text-cyan-400">КМ</span>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] font-term text-slate-400 block">СКОРОСТЬ</span>
+              <span id="speedValueText" class="font-hud text-lg font-bold text-cyan-300">1,850</span>
+              <span class="text-xs font-term text-slate-400">КМ/С</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CENTER VIEWPORT: TARGETING RETICLE & CANNON CROSSHAIRS -->
+      <div class="col-span-12 md:col-span-4 lg:col-span-6 flex flex-col items-center justify-center relative pointer-events-none h-full">
+        
+        <!-- Tactical Dynamic Crosshair -->
+        <div id="centerCrosshair" class="relative w-44 h-44 rounded-full border border-cyan-500/30 flex items-center justify-center transition-transform duration-75">
+          <!-- Outer gimbal ring -->
+          <div class="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400/25 animate-spin" style="animation-duration: 20s;"></div>
+          <!-- Crosshair guides -->
+          <div class="w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent"></div>
+          <div class="h-32 w-px bg-gradient-to-b from-transparent via-cyan-400/60 to-transparent absolute"></div>
+          <!-- Laser alignment dots -->
+          <div class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#00f3ff]"></div>
+          <!-- Gun sight brackets -->
+          <div class="absolute -top-3 text-[9px] font-term text-cyan-400 font-bold">LASER FIRE READY</div>
+        </div>
+
+        <!-- Warning HUD Banner -->
+        <div id="collisionAlertBanner" class="mt-4 px-5 py-2 rounded-xl bg-red-950/90 border border-red-500 text-red-300 font-hud text-xs tracking-wider flex items-center space-x-2.5 opacity-0 scale-90 transition-all shadow-[0_0_35px_rgba(239,68,68,0.7)]">
+          <i data-lucide="alert-octagon" class="w-4 h-4 text-red-400 animate-bounce"></i>
+          <span class="font-bold">ВНИМАНИЕ: ОПАСНЫЙ СБЛИЖЕНИЕ С АСТЕРОИДОМ! [ОТКРОЙТЕ ОГОНЬ / МАНЕВР]</span>
+        </div>
+      </div>
+
+      <!-- RIGHT COCKPIT: TACTICAL RADAR & LIVE COMBAT FEED -->
+      <div class="col-span-12 md:col-span-4 lg:col-span-3 flex flex-col space-y-3 pointer-events-auto">
+        
+        <!-- 3D TACTICAL LIDAR RADAR -->
+        <div class="terminal-panel p-3 rounded-2xl mil-brackets flex flex-col items-center">
+          <div class="w-full flex items-center justify-between mb-2 px-1">
+            <div class="flex items-center space-x-1.5">
+              <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
+              <span class="font-hud text-xs font-semibold tracking-wider text-slate-200">РАДАР НАВЕДЕНИЯ</span>
+            </div>
+            <span id="scannerRangeBadge" class="text-[10px] font-term text-cyan-400">ДАЛЬНОСТЬ: 1200M</span>
+          </div>
+
+          <!-- Radar Disc Canvas -->
+          <div class="relative w-40 h-40 rounded-full border border-cyan-500/40 bg-black/90 overflow-hidden shadow-[inset_0_0_20px_rgba(0,243,255,0.2)]">
+            <canvas id="radarScreenCanvas" width="160" height="160" class="w-full h-full block"></canvas>
+            <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-cyan-500/10 to-transparent pointer-events-none animate-spin" style="animation-duration: 3s;"></div>
+            <div class="absolute inset-4 rounded-full border border-cyan-500/20 pointer-events-none"></div>
+            <div class="absolute inset-8 rounded-full border border-cyan-500/20 pointer-events-none"></div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></div>
+            </div>
+          </div>
+
+          <div class="w-full flex justify-between items-center mt-2 px-1 text-[10px] font-term text-slate-400">
+            <span>БАЛЛЫ: <strong id="scoreReadout" class="text-yellow-400 font-hud text-sm">0</strong></span>
+            <span id="threatCountBadge" class="text-emerald-400 font-bold">УГРОЗ: 0</span>
+          </div>
+        </div>
+
+        <!-- CAPTAIN'S TACTICAL LOG -->
+        <div class="terminal-panel p-3 rounded-2xl mil-brackets flex flex-col h-44">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1 mb-1">
+            <div class="flex items-center space-x-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span class="font-hud text-xs font-semibold text-slate-300">БОРТОВОЙ ЖУРНАЛ</span>
+            </div>
+            <span class="text-[9px] font-term text-slate-500">TACTICAL FEED</span>
+          </div>
+
+          <div id="tacticalLogStream" class="flex-1 overflow-y-auto custom-scroll font-term text-[11px] space-y-1 pr-1 text-slate-300">
+            <!-- Dynamic logs -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- BOTTOM COCKPIT WEAPONS & COMBAT DECK -->
+    <footer class="terminal-panel p-3 rounded-2xl mil-brackets border-cyan-500/40 pointer-events-auto">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+        
+        <!-- Control 1: Blaster Cannons Fire -->
+        <button id="fireCannonsBtn" class="terminal-panel mil-btn group flex items-center space-x-2 px-3 py-2.5 rounded-xl border-cyan-500/50 text-left bg-gradient-to-r from-cyan-950/60 to-slate-900">
+          <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-400 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition">
+            <i data-lucide="crosshair" class="w-4 h-4 text-cyan-300"></i>
+          </div>
+          <div>
+            <div class="text-[10px] font-term text-cyan-400 leading-tight">ОРУДИЯ [ПРОБЕЛ / ЛКМ]</div>
+            <div class="font-hud text-xs font-bold text-white tracking-wide">ЗАЛП ПЛАЗМЫ</div>
+          </div>
+        </button>
+
+        <!-- Control 2: Quantum Shield -->
+        <button id="shieldBarrierBtn" class="terminal-panel mil-btn group flex items-center space-x-2 px-3 py-2.5 rounded-xl border-indigo-500/50 text-left bg-gradient-to-r from-indigo-950/60 to-slate-900">
+          <div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-400 flex items-center justify-center text-indigo-300 group-hover:scale-110 transition">
+            <i data-lucide="shield" class="w-4 h-4 text-indigo-300"></i>
+          </div>
+          <div>
+            <div class="text-[10px] font-term text-indigo-300 leading-tight">КВАНТОВЫЙ ЩИТ [Q]</div>
+            <div id="shieldBtnLabel" class="font-hud text-xs font-bold text-white tracking-wide">ЗАРЯДИТЬ (-15%)</div>
+          </div>
+        </button>
+
+        <!-- Control 3: Warp Drive Toggle -->
+        <button id="warpDriveToggleBtn" class="terminal-panel mil-btn group flex items-center space-x-2 px-3 py-2.5 rounded-xl border-cyan-500/50 text-left bg-gradient-to-r from-cyan-950/60 to-slate-900">
+          <div class="w-8 h-8 rounded-lg bg-cyan-900/60 border border-cyan-400 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition">
+            <i data-lucide="zap" class="w-4 h-4 text-cyan-300"></i>
+          </div>
+          <div>
+            <div class="text-[10px] font-term text-cyan-400 leading-tight">ГИПЕР-ДРАЙВ [W]</div>
+            <div id="warpBtnStateText" class="font-hud text-xs font-bold text-white tracking-wide">ФОРСАЖ</div>
+          </div>
+        </button>
+
+        <!-- Control 4: Space Comms Quiz -->
+        <button id="spaceCommsQuizBtn" class="terminal-panel mil-btn group flex items-center space-x-2 px-3 py-2.5 rounded-xl border-teal-500/50 text-left bg-gradient-to-r from-teal-950/60 to-slate-900 relative">
+          <div class="w-8 h-8 rounded-lg bg-teal-950 border border-teal-400 flex items-center justify-center text-teal-300 group-hover:scale-110 transition">
+            <i data-lucide="satellite" class="w-4 h-4 text-teal-300"></i>
+          </div>
+          <div>
+            <div class="text-[10px] font-term text-teal-300 leading-tight">СВЯЗЬ С ЦЕНТРОМ [E]</div>
+            <div class="font-hud text-xs font-bold text-white tracking-wide">ВИКТОРИНА (+10)</div>
+          </div>
+          <span class="absolute top-2 right-2 flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+          </span>
+        </button>
+
+        <!-- Control 5: Solar Siphon Recharge -->
+        <button id="solarSiphonBtn" class="col-span-2 md:col-span-1 terminal-panel mil-btn group flex items-center space-x-2 px-3 py-2.5 rounded-xl border-amber-500/50 text-left bg-gradient-to-r from-amber-950/60 to-slate-900">
+          <div class="w-8 h-8 rounded-lg bg-amber-950 border border-amber-400 flex items-center justify-center text-amber-300 group-hover:scale-110 transition">
+            <i data-lucide="sun" class="w-4 h-4 text-amber-300"></i>
+          </div>
+          <div>
+            <div class="text-[10px] font-term text-amber-400 leading-tight">СОЛНЕЧНЫЙ СИФОН [R]</div>
+            <div class="font-hud text-xs font-bold text-white tracking-wide">ДОЗАПРАВКА (+20%)</div>
+          </div>
+        </button>
+
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 6. SPACE QUIZ TERMINAL DIALOG                             -->
+  <!-- ========================================================= -->
+  <div id="quizTerminalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300 opacity-0 pointer-events-none scale-95">
+    <div class="w-full max-w-xl terminal-panel rounded-2xl border-cyan-400/60 p-6 shadow-[0_0_60px_rgba(0,243,255,0.3)] mil-brackets relative">
+      
+      <!-- Hologram Header -->
+      <div class="flex items-center justify-between border-b border-cyan-500/30 pb-3 mb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-cyan-950 border border-cyan-400 flex items-center justify-center">
+            <i data-lucide="satellite" class="w-5 h-5 text-cyan-300 animate-pulse"></i>
+          </div>
+          <div>
+            <h3 class="font-hud font-bold text-sm tracking-wider text-cyan-300">ЦЕНТР УПРАВЛЕНИЯ ПОЛЕТАМИ // ВХОДЯЩИЙ СИГНАЛ</h3>
+            <p class="text-[11px] font-term text-slate-400">ПОДТВЕРДИТЕ ТАКТИЧЕСКИЕ ПАРАМЕТРЫ СЕКТОРА</p>
+          </div>
+        </div>
+        <button id="closeQuizModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Timer Bar -->
+      <div class="mb-4">
+        <div class="flex justify-between items-center text-xs font-term text-slate-300 mb-1">
+          <span>ВРЕМЯ НА ОТВЕТ</span>
+          <span id="quizTimerText" class="font-hud font-bold text-amber-400">15.0 С</span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/20">
+          <div id="quizTimerProgressBar" class="h-full bg-gradient-to-r from-cyan-400 to-amber-400 transition-all duration-100" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Question Text -->
+      <div class="bg-slate-950/90 border border-cyan-500/30 rounded-xl p-4 mb-4">
+        <div class="text-[10px] font-term text-cyan-400 uppercase tracking-widest mb-1">ЗАДАЧА НАВИГАЦИИ:</div>
+        <h4 id="quizQuestionBodyText" class="font-hud text-base md:text-lg font-bold text-white leading-snug">
+          Загрузка пакета данных...
+        </h4>
+      </div>
+
+      <!-- Answer Options (Grid 2x2) -->
+      <div id="quizAnswersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Reward & Penalties -->
+      <div class="flex items-center justify-between text-xs font-term text-slate-400 pt-2 border-t border-slate-800">
+        <div class="flex items-center space-x-3">
+          <span class="text-emerald-400 font-semibold">+10 БАЛЛОВ ЗА УСПЕХ</span>
+          <span class="text-rose-400 font-semibold">-5 БАЛЛОВ ЗА ОШИБКУ</span>
+        </div>
+        <span class="text-slate-500 text-[11px]">КЛАВИШИ [1-4]</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 7. PILOT COMBAT MANUAL DIALOG                             -->
+  <!-- ========================================================= -->
+  <div id="pilotGuideDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300 opacity-0 pointer-events-none scale-95">
+    <div class="w-full max-w-lg terminal-panel rounded-2xl border-cyan-400/50 p-6 mil-brackets shadow-[0_0_50px_rgba(0,243,255,0.25)]">
+      <div class="flex items-center justify-between border-b border-cyan-500/30 pb-3 mb-4">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="font-hud font-bold text-base text-cyan-300">ТАКТИЧЕСКИЙ БРИФИНГ ПИЛОТА</h3>
+        </div>
+        <button id="closeGuideDialogBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5 font-term text-xs text-slate-300 leading-relaxed">
+        <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/20">
+          <strong class="text-cyan-400 font-hud block mb-1">⚔️ ОРУДИЯ И СТРЕЛЬБА:</strong>
+          • Нажимайте <span class="text-white bg-slate-800 px-1 rounded">Пробел</span> или <span class="text-white bg-slate-800 px-1 rounded">ЛКМ</span> для залпа спаренными плазменными пушками. Точное попадание уничтожает астероид, вызывая разлет сотен осколков и ударную волну (+15 баллов)!
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/20">
+          <strong class="text-cyan-400 font-hud block mb-1">⚡ СИСТЕМА ПИТАНИЯ (POWER GRID):</strong>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">1</span>: Приоритет Двигателям (Варп, скорость до 2400 км/с).<br>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">2</span>: Приоритет Щитам (Укрепление купола, 100% защита от столкновения).<br>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">3</span>: Приоритет Сканерам (Увеличенный радиус радара и автозахват целей).<br>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">0</span>: Баланс всех систем.
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/20">
+          <strong class="text-indigo-400 font-hud block mb-1">🛡️ КВАНТОВЫЙ ЩИТ:</strong>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">Q</span>. Тратит 15% топлива и полностью нейтрализует таранный удар астероида.
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/20">
+          <strong class="text-teal-400 font-hud block mb-1">📡 ВИКТОРИНА (СВЯЗЬ С ЦЕНТРОМ):</strong>
+          • Клавиша <span class="text-white bg-slate-800 px-1 rounded">E</span>. Правильный ответ: <span class="text-emerald-400">+10 баллов</span>, ошибка: <span class="text-rose-400">-5 баллов</span>.
+        </div>
+      </div>
+
+      <button id="confirmGuideDialogBtn" class="w-full mt-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 hover:to-teal-400 text-black font-hud font-bold text-xs tracking-wider transition shadow-lg">
+        ПРИКАЗ ПРИНЯТ, К БОЮ ГОТОВ!
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 8. COMPLETE THREE.JS + CUSTOM SHADERS ENGINE SCRIPT       -->
+  <!-- ========================================================= -->
+  <script>
+    /* =====================================================================
+     * 1. PROCEDURAL WEB AUDIO API SYNTHESIZER
+     * ===================================================================== */
+    class CombatSoundSynthesizer {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.engineOsc = null;
+        this.engineFilter = null;
+        this.engineGain = null;
+        this.alarmInterval = null;
+        this.isAlarmActive = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.initEngineSound();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      initEngineSound() {
+        if (!this.ctx) return;
+        this.engineOsc = this.ctx.createOscillator();
+        this.engineFilter = this.ctx.createBiquadFilter();
+        this.engineGain = this.ctx.createGain();
+
+        this.engineOsc.type = 'sawtooth';
+        this.engineOsc.frequency.setValueAtTime(55, this.ctx.currentTime);
+
+        this.engineFilter.type = 'lowpass';
+        this.engineFilter.frequency.setValueAtTime(120, this.ctx.currentTime);
+
+        this.engineGain.gain.setValueAtTime(this.muted ? 0 : 0.04, this.ctx.currentTime);
+
+        this.engineOsc.connect(this.engineFilter);
+        this.engineFilter.connect(this.engineGain);
+        this.engineGain.connect(this.ctx.destination);
+        this.engineOsc.start();
+      }
+
+      updateEnginePitch(isWarp, powerRatio = 1.0) {
+        if (!this.ctx || !this.engineOsc) return;
+        const targetFreq = isWarp ? (90 * powerRatio + 40) : (50 * powerRatio + 15);
+        const targetVol = this.muted ? 0 : (isWarp ? 0.08 : 0.035);
+        this.engineOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.15);
+        this.engineGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.15);
+      }
+
+      toggleMute() {
+        this.muted = !this.muted;
+        if (this.engineGain) {
+          this.engineGain.gain.setValueAtTime(this.muted ? 0 : 0.04, this.ctx.currentTime);
+        }
+        return this.muted;
+      }
+
+      playLaserShot() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.12);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+
+      playExplosion() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+
+        // Sub bass shock thump
+        const sub = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(150, now);
+        sub.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+        subGain.gain.setValueAtTime(0.6, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        sub.connect(subGain);
+        subGain.connect(this.ctx.destination);
+        sub.start(now);
+        sub.stop(now + 0.5);
+
+        // Filtered noise explosion
+        const bufferSize = this.ctx.sampleRate * 0.45;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, now);
+        filter.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.4, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noise.start(now);
+      }
+
+      playShieldAbsorb() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1600, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playPowerShift() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(350, now);
+        osc.frequency.exponentialRampToValueAtTime(850, now + 0.15);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+
+      startWarningKlaxon() {
+        if (this.isAlarmActive || this.muted) return;
+        this.isAlarmActive = true;
+        this.alarmInterval = setInterval(() => {
+          if (this.muted) return;
+          this.init();
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(750, now);
+          osc.frequency.setValueAtTime(550, now + 0.12);
+          gain.gain.setValueAtTime(0.07, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        }, 750);
+      }
+
+      stopWarningKlaxon() {
+        if (this.alarmInterval) {
+          clearInterval(this.alarmInterval);
+          this.alarmInterval = null;
+        }
+        this.isAlarmActive = false;
+      }
+    }
+
+    const audio = new CombatSoundSynthesizer();
+
+    /* =====================================================================
+     * 2. COMBAT STATE & POWER GRID LOGIC
+     * ===================================================================== */
+    const combat = {
+      fuel: 100,
+      distance: 0,
+      score: 0,
+      warpEngines: true,
+      shieldBarrier: false,
+      speed: 1850,
+      lastLaserSide: 1,
+      // Power Grid Allocation: [ENG, SHD, SNS]
+      powerGrid: {
+        mode: 'BALANCED', // 'ENG', 'SHD', 'SNS', 'BALANCED'
+        eng: 0.33,
+        shd: 0.33,
+        sns: 0.33
+      },
+      steer: {
+        x: 0,
+        y: 0,
+        targetX: 0,
+        targetY: 0
+      },
+      shockwave: {
+        center: new THREE.Vector2(0.5, 0.5),
+        progress: 1.0, // 0..1, 1 means inactive
+        strength: 0.08
+      },
+      glitchIntensity: 0,
+      aberrationAmount: 0.002,
+      lastTime: performance.now(),
+      fpsFrames: 0,
+      fpsLastUpdate: performance.now()
+    };
+
+    /* Space Quiz Questions Pool */
+    const spaceQuizQuestions = [
+      {
+        q: "Какая планета Солнечной системы обладает мощнейшим магнитным полем и радиационным поясом?",
+        opts: ["Юпитер", "Сатурн", "Марс", "Меркурий"],
+        ans: 0
+      },
+      {
+        q: "Что такое горизонт событий черной дыры?",
+        opts: ["Граница, за которой ничто не может вырваться", "Внешнее кольцо аккреции", "Центральная точка сингулярности", "Световое гало квазара"],
+        ans: 0
+      },
+      {
+        q: "Какое расстояние свет проходит в космическом вакууме за 1 земной год?",
+        opts: ["Около 9.46 триллионов км (1 световой год)", "1 миллиард км", "150 миллионов км", "100 триллионов км"],
+        ans: 0
+      },
+      {
+        q: "Какая температура поверхности считается средней для открытого космического вакуума?",
+        opts: ["~2.7 Кельвина (-270.45°C)", "0 Кельвинов", "-100°C", "Абсолютно случайная"],
+        ans: 0
+      }
+    ];
+
+    let currentQuiz = null;
+    let quizCountdownTimer = null;
+
+    /* =====================================================================
+     * 3. THREE.JS SCENE SETUP & OPTIMIZED RENDER TARGET
+     * ===================================================================== */
+    const canvas = document.getElementById('renderCanvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x00020a, 0.001);
+
+    const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 2500);
+    camera.position.set(0, 3.2, 12);
+
+    // High Performance WebGL Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: false, // Performance: custom postprocessing shader provides super-crisp FX
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+
+    // Custom Full-Screen Render Target for Single-Pass Shader Postprocessing
+    const renderTarget = new THREE.WebGLRenderTarget(
+      window.innerWidth * Math.min(window.devicePixelRatio, 2),
+      window.innerHeight * Math.min(window.devicePixelRatio, 2),
+      {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat
+      }
+    );
+
+    /* FULLSCREEN QUAD POSTPROCESSING SCENE */
+    const postScene = new THREE.Scene();
+    const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    // Custom Uber-Shader: Chromatic Aberration + Shockwave Refraction + CRT Scanlines + Film Grain + Glitch
+    const postShaderMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: renderTarget.texture },
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+        uTime: { value: 0 },
+        uAberration: { value: 0.002 },
+        uShockwaveCenter: { value: new THREE.Vector2(0.5, 0.5) },
+        uShockwaveProgress: { value: 1.0 },
+        uShockwaveStrength: { value: 0.07 },
+        uGlitchIntensity: { value: 0.0 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform float uAberration;
+        uniform vec2 uShockwaveCenter;
+        uniform float uShockwaveProgress;
+        uniform float uShockwaveStrength;
+        uniform float uGlitchIntensity;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 uv = vUv;
+
+          // 1. Horizontal Glitch Slice Displacement
+          if (uGlitchIntensity > 0.0) {
+            float slice = sin(uv.y * 35.0 + uTime * 25.0);
+            if (slice > 0.8) {
+              uv.x += (fract(sin(uTime * 142.1) * 43758.5453) - 0.5) * 0.04 * uGlitchIntensity;
+            }
+          }
+
+          // 2. Physical Shockwave Lens Refraction
+          if (uShockwaveProgress > 0.0 && uShockwaveProgress < 1.0) {
+            vec2 toCenter = uv - uShockwaveCenter;
+            toCenter.x *= (uResolution.x / uResolution.y);
+            float dist = length(toCenter);
+            float waveRadius = uShockwaveProgress * 1.35;
+            float waveWidth = 0.12;
+            float diff = abs(dist - waveRadius);
+            if (diff < waveWidth) {
+              float powDiff = 1.0 - diff / waveWidth;
+              float displace = sin(powDiff * 3.14159) * uShockwaveStrength * (1.0 - uShockwaveProgress);
+              vec2 norm = normalize(toCenter);
+              uv += norm * displace;
+            }
+          }
+
+          // 3. Dynamic Chromatic Aberration (RGB Phase Split)
+          vec2 dir = uv - vec2(0.5);
+          float distCenter = length(dir);
+          float abAmount = uAberration * (1.0 + distCenter * 1.8);
+          vec2 offset = normalize(dir + 0.0001) * abAmount;
+
+          float r = texture2D(tDiffuse, uv + offset).r;
+          float g = texture2D(tDiffuse, uv).g;
+          float b = texture2D(tDiffuse, uv - offset).b;
+          vec3 color = vec3(r, g, b);
+
+          // 4. CRT Subtle Scanlines
+          float scanline = sin(uv.y * uResolution.y * 1.25) * 0.04;
+          color -= scanline;
+
+          // 5. Film Grain Noise
+          float grain = (fract(sin(dot(uv * uTime, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.035;
+          color += grain;
+
+          // 6. Cockpit Vignette
+          float vignette = smoothstep(0.85, 0.28, distCenter);
+          color *= vignette;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    });
+
+    const postQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postShaderMaterial);
+    postScene.add(postQuad);
+
+    // Resize Handler
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      renderer.setSize(w, h);
+      renderTarget.setSize(w * dpr, h * dpr);
+      postShaderMaterial.uniforms.uResolution.value.set(w, h);
+    });
+
+    /* LIGHTING */
+    const ambLight = new THREE.AmbientLight(0x0f172a, 1.5);
+    scene.add(ambLight);
+
+    const keySun = new THREE.DirectionalLight(0xffffff, 2.4);
+    keySun.position.set(40, 50, 60);
+    scene.add(keySun);
+
+    const rimCyan = new THREE.DirectionalLight(0x00f3ff, 1.6);
+    rimCyan.position.set(-30, -20, -40);
+    scene.add(rimCyan);
+
+    /* =====================================================================
+     * 4. 3D MODELS: SHIP, LASERS, WARP STARS, SHIELD
+     * ===================================================================== */
+    const shipRig = new THREE.Group();
+    scene.add(shipRig);
+
+    // Titanium Fighter Hull Materials
+    const hullMaterial = new THREE.MeshStandardMaterial({
+      color: 0x080c14,
+      roughness: 0.25,
+      metalness: 0.92,
+      flatShading: true
+    });
+    const neonCyanMaterial = new THREE.MeshStandardMaterial({
+      color: 0x00f3ff,
+      emissive: 0x00f3ff,
+      emissiveIntensity: 1.0
+    });
+    const glassCanopyMaterial = new THREE.MeshStandardMaterial({
+      color: 0x00f3ff,
+      emissive: 0x00f3ff,
+      emissiveIntensity: 0.35,
+      transparent: true,
+      opacity: 0.85,
+      roughness: 0.1
+    });
+
+    // Fuselage
+    const fusGeo = new THREE.ConeGeometry(1.6, 6.2, 5);
+    fusGeo.rotateX(Math.PI / 2);
+    shipRig.add(new THREE.Mesh(fusGeo, hullMaterial));
+
+    // Canopy
+    const canGeo = new THREE.ConeGeometry(0.75, 2.8, 4);
+    canGeo.rotateX(Math.PI / 2);
+    const canopyMesh = new THREE.Mesh(canGeo, glassCanopyMaterial);
+    canopyMesh.position.set(0, 0.45, 0.5);
+    shipRig.add(canopyMesh);
+
+    // Swept Wings
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0, 0);
+    wingShape.lineTo(4.8, -1.8);
+    wingShape.lineTo(4.2, -3.2);
+    wingShape.lineTo(0, -2.4);
+    wingShape.closePath();
+
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, { depth: 0.18, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 });
+    wingGeo.rotateX(Math.PI / 2);
+
+    const rWing = new THREE.Mesh(wingGeo, hullMaterial);
+    rWing.position.set(0.6, -0.15, 1.2);
+    shipRig.add(rWing);
+
+    const lWing = new THREE.Mesh(wingGeo, hullMaterial);
+    lWing.scale.set(-1, 1, 1);
+    lWing.position.set(-0.6, -0.15, 1.2);
+    shipRig.add(lWing);
+
+    // Cannons
+    const gunGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.4, 6);
+    gunGeo.rotateX(Math.PI / 2);
+    const rGun = new THREE.Mesh(gunGeo, neonCyanMaterial);
+    rGun.position.set(4.6, -0.15, -0.4);
+    shipRig.add(rGun);
+
+    const lGun = new THREE.Mesh(gunGeo, neonCyanMaterial);
+    lGun.position.set(-4.6, -0.15, -0.4);
+    shipRig.add(lGun);
+
+    // Engine Thrusters & Point Light
+    const thrusterGeo = new THREE.CylinderGeometry(0.35, 0.5, 0.8, 8);
+    thrusterGeo.rotateX(Math.PI / 2);
+    const rThrust = new THREE.Mesh(thrusterGeo, neonCyanMaterial);
+    rThrust.position.set(0.85, 0, 3.2);
+    shipRig.add(rThrust);
+
+    const lThrust = new THREE.Mesh(thrusterGeo, neonCyanMaterial);
+    lThrust.position.set(-0.85, 0, 3.2);
+    shipRig.add(lThrust);
+
+    const engineLight = new THREE.PointLight(0x00f3ff, 2.8, 18);
+    engineLight.position.set(0, 0, 4.2);
+    shipRig.add(engineLight);
+
+    // Quantum Shield 3D Bubble
+    const shieldGeo = new THREE.IcosahedronGeometry(4.2, 2);
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: 0x6366f1,
+      emissive: 0x818cf8,
+      emissiveIntensity: 0.9,
+      wireframe: true,
+      transparent: true,
+      opacity: 0
+    });
+    const shieldDome = new THREE.Mesh(shieldGeo, shieldMat);
+    shipRig.add(shieldDome);
+
+    /* WARP STARFIELD */
+    const STAR_COUNT = 1800;
+    const starPointsGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(STAR_COUNT * 3);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      starPos[i * 3] = (Math.random() - 0.5) * 450;
+      starPos[i * 3 + 1] = (Math.random() - 0.5) * 350;
+      starPos[i * 3 + 2] = -Math.random() * 1200;
+    }
+    starPointsGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starFieldPoints = new THREE.Points(starPointsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6 }));
+    scene.add(starFieldPoints);
+
+    // Warp Streaks
+    const warpLinesGeo = new THREE.BufferGeometry();
+    const warpLinePos = new Float32Array(STAR_COUNT * 6);
+    warpLinesGeo.setAttribute('position', new THREE.BufferAttribute(warpLinePos, 3));
+    const warpLinesMesh = new THREE.LineSegments(warpLinesGeo, new THREE.LineBasicMaterial({
+      color: 0x00f3ff,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending
+    }));
+    scene.add(warpLinesMesh);
+
+    /* =====================================================================
+     * 5. OBJECT POOLING: LASERS, ASTEROIDS, PARTICLES (ZERO GC STUTTER)
+     * ===================================================================== */
+    // A. LASER BOLT POOL (24 Bolts)
+    const LASER_POOL_SIZE = 24;
+    const laserPool = [];
+    const laserGeo = new THREE.CylinderGeometry(0.12, 0.12, 4.5, 6);
+    laserGeo.rotateX(Math.PI / 2);
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+
+    for (let i = 0; i < LASER_POOL_SIZE; i++) {
+      const mesh = new THREE.Mesh(laserGeo, laserMat);
+      mesh.visible = false;
+      mesh.active = false;
+      scene.add(mesh);
+      laserPool.push(mesh);
+    }
+
+    function fireLaserBolt() {
+      audio.playLaserShot();
+      combat.lastLaserSide *= -1;
+      const wingOffset = combat.lastLaserSide * 4.6;
+
+      const bolt = laserPool.find(b => !b.active);
+      if (!bolt) return;
+
+      bolt.position.set(shipRig.position.x + wingOffset, shipRig.position.y - 0.15, shipRig.position.z);
+      bolt.visible = true;
+      bolt.active = true;
+
+      // Gun muzzle flash recoil
+      combat.aberrationAmount = 0.005;
+      gsap.to(combat, { aberrationAmount: 0.002, duration: 0.2 });
+    }
+
+    // B. ASTEROID POOL (16 Procedural Crags)
+    const ASTEROID_COUNT = 16;
+    const asteroidPool = [];
+
+    function makeAsteroid() {
+      const radius = Math.random() * 2.4 + 1.8;
+      const geo = new THREE.DodecahedronGeometry(radius, 1);
+      const posAttr = geo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const noise = 1 + (Math.random() - 0.5) * 0.45;
+        posAttr.setXYZ(i, posAttr.getX(i) * noise, posAttr.getY(i) * noise, posAttr.getZ(i) * noise);
+      }
+      geo.computeVertexNormals();
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: Math.random() > 0.4 ? 0x475569 : 0x334155,
+        roughness: 0.9,
+        metalness: 0.15,
+        flatShading: true
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.radius = radius;
+      recycleAsteroid(mesh);
+      return mesh;
+    }
+
+    function recycleAsteroid(ast) {
+      ast.position.x = (Math.random() - 0.5) * 120;
+      ast.position.y = (Math.random() - 0.5) * 90;
+      ast.position.z = -Math.random() * 800 - 500;
+      ast.rotX = (Math.random() - 0.5) * 0.04;
+      ast.rotY = (Math.random() - 0.5) * 0.04;
+      ast.rotZ = (Math.random() - 0.5) * 0.04;
+    }
+
+    for (let i = 0; i < ASTEROID_COUNT; i++) {
+      const ast = makeAsteroid();
+      asteroidPool.push(ast);
+      scene.add(ast);
+    }
+
+    // C. EXPLOSION PARTICLE POOL (800 Particles in 1 Draw Call)
+    const PARTICLE_COUNT = 800;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const particleColors = new Float32Array(PARTICLE_COUNT * 3);
+    const particleVelocities = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3] = 0;
+      particlePositions[i * 3 + 1] = -9999;
+      particlePositions[i * 3 + 2] = 0;
+
+      particleColors[i * 3] = 0;
+      particleColors[i * 3 + 1] = 1;
+      particleColors[i * 3 + 2] = 1;
+
+      particleVelocities.push({ x: 0, y: 0, z: 0, life: 0, maxLife: 1 });
+    }
+
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+      size: 2.2,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    const particleSystem = new THREE.Points(particleGeo, particleMaterial);
+    scene.add(particleSystem);
+
+    function spawnExplosionParticles(centerPos, count = 70) {
+      let spawned = 0;
+      for (let i = 0; i < PARTICLE_COUNT && spawned < count; i++) {
+        const vel = particleVelocities[i];
+        if (vel.life <= 0) {
+          // Set initial pos
+          particlePositions[i * 3] = centerPos.x;
+          particlePositions[i * 3 + 1] = centerPos.y;
+          particlePositions[i * 3 + 2] = centerPos.z;
+
+          // Velocity blast sphere
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+          const spd = Math.random() * 45 + 15;
+
+          vel.x = Math.sin(phi) * Math.cos(theta) * spd;
+          vel.y = Math.sin(phi) * Math.sin(theta) * spd;
+          vel.z = Math.cos(phi) * spd;
+          vel.life = Math.random() * 0.8 + 0.4;
+          vel.maxLife = vel.life;
+
+          // Color: bright cyan -> fiery amber
+          const isAmber = Math.random() > 0.5;
+          particleColors[i * 3] = isAmber ? 1.0 : 0.0;
+          particleColors[i * 3 + 1] = isAmber ? 0.6 : 0.95;
+          particleColors[i * 3 + 2] = isAmber ? 0.1 : 1.0;
+
+          spawned++;
+        }
+      }
+      particleGeo.attributes.position.needsUpdate = true;
+      particleGeo.attributes.color.needsUpdate = true;
+    }
+
+    /* =====================================================================
+     * 6. POSTPROCESSING SHOCKWAVE & SCREEN SHAKE
+     * ===================================================================== */
+    function triggerCombatShockwave(worldPos, intensity = 1.0) {
+      // Project 3D coordinate to Screen UV (0..1)
+      const proj = worldPos.clone().project(camera);
+      const uvX = (proj.x + 1) / 2;
+      const uvY = (proj.y + 1) / 2;
+
+      combat.shockwave.center.set(uvX, uvY);
+      combat.shockwave.progress = 0.0;
+      combat.shockwave.strength = 0.09 * intensity;
+
+      // Animate shockwave outward
+      gsap.fromTo(combat.shockwave, 
+        { progress: 0.0 }, 
+        { progress: 1.0, duration: 0.55, ease: "power2.out" }
+      );
+
+      // Chromatic Aberration Spike
+      combat.aberrationAmount = 0.016 * intensity;
+      gsap.to(combat, { aberrationAmount: 0.002, duration: 0.6, ease: "power2.out" });
+
+      // GSAP Camera Shake
+      gsap.to(camera.position, {
+        x: `+=${(Math.random() - 0.5) * 2.2 * intensity}`,
+        y: `+=${(Math.random() - 0.5) * 2.2 * intensity}`,
+        duration: 0.035,
+        repeat: 8,
+        yoyo: true,
+        ease: "power1.inOut",
+        onComplete: () => {
+          camera.position.x = 0;
+          camera.position.y = 3.2;
+        }
+      });
+    }
+
+    // Floating text notification
+    function spawnHUDNotice(text, colorClass) {
+      const el = document.createElement('div');
+      el.className = `absolute text-sm font-hud font-black tracking-wider pointer-events-none ${colorClass}`;
+      el.style.left = `${window.innerWidth / 2 + (Math.random() * 80 - 40)}px`;
+      el.style.top = `${window.innerHeight / 2 - 20}px`;
+      el.innerText = text;
+      document.getElementById('combatAlertsContainer').appendChild(el);
+
+      gsap.fromTo(el, 
+        { y: 0, opacity: 1, scale: 0.9 },
+        { y: -70, opacity: 0, scale: 1.3, duration: 0.8, ease: "power2.out", onComplete: () => el.remove() }
+      );
+    }
+
+    // Captain's Tactical Log
+    function addTacticalLog(text, type = 'info') {
+      const list = document.getElementById('tacticalLogStream');
+      const now = new Date();
+      const time = now.toTimeString().split(' ')[0] + `.${Math.floor(now.getMilliseconds() / 100)}`;
+
+      const item = document.createElement('div');
+      item.className = 'flex items-start space-x-1.5 leading-tight';
+
+      let tag = '<span class="text-cyan-400 font-bold">[SYS]</span>';
+      if (type === 'warn') tag = '<span class="text-amber-400 font-bold">[WARN]</span>';
+      if (type === 'alert') tag = '<span class="text-rose-400 font-bold">[DMG]</span>';
+      if (type === 'kill') tag = '<span class="text-emerald-400 font-bold">[KILL]</span>';
+      if (type === 'shield') tag = '<span class="text-indigo-400 font-bold">[SHD]</span>';
+
+      item.innerHTML = `<span class="text-slate-500 font-term text-[10px]">${time}</span> ${tag} <span class="text-slate-200">${text}</span>`;
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+
+      if (list.children.length > 30) list.removeChild(list.children[0]);
+    }
+
+    /* =====================================================================
+     * 7. POWER GRID ALLOCATION (Star Citizen / Elite Dangerous Style)
+     * ===================================================================== */
+    function setPowerGridMode(mode) {
+      audio.playPowerShift();
+      combat.powerGrid.mode = mode;
+      const modeBadge = document.getElementById('activePowerModeBadge');
+
+      if (mode === 'ENG') {
+        combat.powerGrid.eng = 0.60;
+        combat.powerGrid.shd = 0.20;
+        combat.powerGrid.sns = 0.20;
+        modeBadge.innerText = 'ПРИОРИТЕТ: ДВИГАТЕЛИ';
+        modeBadge.className = 'text-[10px] font-hud px-2 py-0.5 rounded bg-cyan-900 text-cyan-300 border border-cyan-400';
+        addTacticalLog('ПИТАНИЕ: 60% перенаправлено на маршевые двигатели. Скорость форсирована!', 'info');
+      } else if (mode === 'SHD') {
+        combat.powerGrid.eng = 0.20;
+        combat.powerGrid.shd = 0.60;
+        combat.powerGrid.sns = 0.20;
+        modeBadge.innerText = 'ПРИОРИТЕТ: ЩИТЫ';
+        modeBadge.className = 'text-[10px] font-hud px-2 py-0.5 rounded bg-indigo-900 text-indigo-300 border border-indigo-400';
+        addTacticalLog('ПИТАНИЕ: 60% перенаправлено на силовой купол. Щиты укреплены!', 'shield');
+      } else if (mode === 'SNS') {
+        combat.powerGrid.eng = 0.20;
+        combat.powerGrid.shd = 0.20;
+        combat.powerGrid.sns = 0.60;
+        modeBadge.innerText = 'ПРИОРИТЕТ: СКАНЕРЫ';
+        modeBadge.className = 'text-[10px] font-hud px-2 py-0.5 rounded bg-teal-900 text-teal-300 border border-teal-400';
+        addTacticalLog('ПИТАНИЕ: 60% перенаправлено на сенсоры. Захват целей расширен!', 'info');
+      } else {
+        combat.powerGrid.eng = 0.33;
+        combat.powerGrid.shd = 0.33;
+        combat.powerGrid.sns = 0.33;
+        modeBadge.innerText = 'БАЛАНС';
+        modeBadge.className = 'text-[10px] font-hud px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700';
+        addTacticalLog('ПИТАНИЕ: Системы сбалансированы в штатном режиме (33/33/33).', 'info');
+      }
+
+      document.getElementById('engPercentText').innerText = `${Math.round(combat.powerGrid.eng * 100)}%`;
+      document.getElementById('shdPercentText').innerText = `${Math.round(combat.powerGrid.shd * 100)}%`;
+      document.getElementById('snsPercentText').innerText = `${Math.round(combat.powerGrid.sns * 100)}%`;
+
+      audio.updateEnginePitch(combat.warpEngines, combat.powerGrid.eng);
+    }
+
+    /* =====================================================================
+     * 8. COMBAT & SCRATCH MECHANICS (Shield, Collision, Quiz, Fuel)
+     * ===================================================================== */
+    // Asteroid Destruction (Laser cannon hits asteroid)
+    function destroyAsteroid(ast) {
+      audio.playExplosion();
+      spawnExplosionParticles(ast.position, 70);
+      triggerCombatShockwave(ast.position, 1.0);
+
+      combat.score += 15;
+      document.getElementById('scoreReadout').innerText = combat.score;
+      spawnHUDNotice('+15 [ЦЕЛЬ УНИЧТОЖЕНА]', 'text-cyan-400 font-black');
+      addTacticalLog(`Астероид уничтожен лазерным залпом (+15 баллов).`, 'kill');
+
+      recycleAsteroid(ast);
+    }
+
+    // Physical Collision (Asteroid hits ship)
+    function handleShipCollision(ast) {
+      if (combat.shieldBarrier || combat.powerGrid.mode === 'SHD') {
+        // Shield Absorbs Hit!
+        combat.shieldBarrier = false;
+        audio.playShieldAbsorb();
+        updateShieldUI();
+
+        gsap.to(shieldMat, { opacity: 0, duration: 0.3 });
+        triggerCombatShockwave(shipRig.position, 0.7);
+
+        spawnHUDNotice('УДАР ПОГЛОЩЕН ЩИТОМ!', 'text-indigo-400');
+        addTacticalLog('Силовой купол нейтрализовал кинетическую энергию удара!', 'shield');
+        recycleAsteroid(ast);
+      } else {
+        // Critical Hull Impact (-5 score, Heavy Shock, Glitch)
+        audio.playExplosion();
+        combat.score = Math.max(0, combat.score - 5);
+        document.getElementById('scoreReadout').innerText = combat.score;
+
+        triggerCombatShockwave(shipRig.position, 1.4);
+        triggerCriticalGlitch();
+
+        spawnHUDNotice('-5 БАЛЛОВ [КРИТИЧЕСКИЙ УДАР]', 'text-rose-400');
+        addTacticalLog('СТОЛКНОВЕНИЕ! Корпус поврежден, системы сбоят (-5 баллов).', 'alert');
+        recycleAsteroid(ast);
+      }
+    }
+
+    // Critical Glitch Animation
+    function triggerCriticalGlitch() {
+      const overlay = document.getElementById('criticalGlitchOverlay');
+      combat.glitchIntensity = 1.0;
+      overlay.style.opacity = '1';
+
+      gsap.to(combat, {
+        glitchIntensity: 0,
+        duration: 0.8,
+        ease: "power2.out",
+        onUpdate: () => {
+          postShaderMaterial.uniforms.uGlitchIntensity.value = combat.glitchIntensity;
+        },
+        onComplete: () => {
+          overlay.style.opacity = '0';
+        }
+      });
+    }
+
+    // Quantum Shield Activation (-15% fuel)
+    function activateQuantumShield() {
+      if (combat.shieldBarrier) {
+        addTacticalLog('Квантовый щит уже активен.', 'shield');
+        return;
+      }
+      if (combat.fuel < 15) {
+        audio.playLaserShot();
+        spawnHUDNotice('НЕТ ТОПЛИВА (НУЖНО 15%)', 'text-rose-400');
+        addTacticalLog('ОШИБКА: Недостаточно топлива для развертывания щита!', 'warn');
+        return;
+      }
+
+      combat.fuel = Math.max(0, combat.fuel - 15);
+      combat.shieldBarrier = true;
+      audio.playShieldAbsorb();
+
+      gsap.fromTo(shieldMat, { opacity: 0 }, { opacity: 0.9, duration: 0.35 });
+      gsap.fromTo(shieldDome.scale, { x: 0.5, y: 0.5, z: 0.5 }, { x: 1, y: 1, z: 1, duration: 0.35, ease: "back.out(2)" });
+
+      updateFuelUI();
+      updateShieldUI();
+      spawnHUDNotice('СИЛОВОЙ КУПОЛ АКТИВЕН (-15%)', 'text-indigo-400');
+      addTacticalLog('Квантовый щит включен (-15% топлива). Готов к нейтрализации.', 'shield');
+    }
+
+    function updateShieldUI() {
+      const label = document.getElementById('shieldBtnLabel');
+      if (combat.shieldBarrier) {
+        label.innerText = 'АКТИВЕН (100%)';
+      } else {
+        label.innerText = 'ЗАРЯДИТЬ (-15%)';
+      }
+    }
+
+    // Warp Engines Toggle
+    function toggleWarpEngines() {
+      combat.warpEngines = !combat.warpEngines;
+      audio.updateEnginePitch(combat.warpEngines, combat.powerGrid.eng);
+
+      const btnText = document.getElementById('warpBtnStateText');
+      if (combat.warpEngines) {
+        btnText.innerText = 'ВАРП (АКТИВЕН)';
+        addTacticalLog('Маршевые двигатели форсированы: режим ВАРП включен.', 'info');
+      } else {
+        btnText.innerText = 'ДРЕЙФ (СТОП)';
+        addTacticalLog('Двигатели переведены в режим свободного полета.', 'warn');
+      }
+
+      gsap.to(camera, {
+        fov: combat.warpEngines ? 74 : 62,
+        duration: 0.5,
+        ease: "power2.out",
+        onUpdate: () => camera.updateProjectionMatrix()
+      });
+    }
+
+    // Solar Recharge (+20% fuel)
+    function solarRecharge() {
+      const prev = combat.fuel;
+      combat.fuel = Math.min(100, combat.fuel + 20);
+      const gained = Math.round(combat.fuel - prev);
+
+      spawnHUDNotice(`+${gained}% ТОПЛИВО`, 'text-amber-400');
+      addTacticalLog(`Солнечный сифон развернут: баки пополнены на +${gained}%.`, 'kill');
+      updateFuelUI();
+    }
+
+    function updateFuelUI() {
+      const bar = document.getElementById('fuelBarFill');
+      const text = document.getElementById('fuelReadout');
+      const pct = Math.max(0, Math.min(100, combat.fuel));
+
+      bar.style.width = `${pct}%`;
+      text.innerText = `${Math.round(pct)}%`;
+
+      if (pct > 50) {
+        bar.className = 'h-full rounded bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-300 shadow-[0_0_12px_rgba(0,243,255,0.8)] transition-all duration-300';
+        audio.stopWarningKlaxon();
+      } else if (pct > 20) {
+        bar.className = 'h-full rounded bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.8)] transition-all duration-300';
+        audio.stopWarningKlaxon();
+      } else {
+        bar.className = 'h-full rounded bg-gradient-to-r from-rose-600 to-red-500 shadow-[0_0_18px_rgba(239,68,68,0.9)] animate-pulse transition-all duration-300';
+        audio.startWarningKlaxon();
+      }
+
+      if (pct <= 0 && combat.warpEngines) {
+        combat.warpEngines = false;
+        audio.updateEnginePitch(false);
+        addTacticalLog('ВНИМАНИЕ: Топливо исчерпано! Активируйте солнечный сифон [R].', 'alert');
+      }
+    }
+
+    /* =====================================================================
+     * 9. SPACE QUIZ TERMINAL (СВЯЗЬ С ЦЕНТРОМ)
+     * ===================================================================== */
+    function openQuizTerminal() {
+      const modal = document.getElementById('quizTerminalModal');
+      const qIdx = Math.floor(Math.random() * spaceQuizQuestions.length);
+      currentQuiz = {
+        data: spaceQuizQuestions[qIdx],
+        timeLeft: 15.0
+      };
+
+      document.getElementById('quizQuestionBodyText').innerText = currentQuiz.data.q;
+      const grid = document.getElementById('quizAnswersGrid');
+      grid.innerHTML = '';
+
+      currentQuiz.data.opts.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'mil-btn p-3 rounded-xl text-left bg-slate-900/90 border border-cyan-500/30 hover:border-cyan-400 text-slate-200 hover:text-white transition group flex items-center justify-between';
+        btn.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <span class="w-6 h-6 rounded-md bg-cyan-950 border border-cyan-500/40 text-cyan-300 text-xs font-term flex items-center justify-center font-bold">${idx + 1}</span>
+            <span class="font-hud text-xs md:text-sm tracking-wide">${opt}</span>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-cyan-400 opacity-0 group-hover:opacity-100 transition"></i>
+        `;
+        btn.onclick = () => submitQuizAnswer(idx);
+        grid.appendChild(btn);
+      });
+
+      lucide.createIcons();
+      modal.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+      modal.classList.add('opacity-100', 'scale-100');
+
+      clearInterval(quizCountdownTimer);
+      const timerBar = document.getElementById('quizTimerProgressBar');
+      const timerText = document.getElementById('quizTimerText');
+
+      quizCountdownTimer = setInterval(() => {
+        currentQuiz.timeLeft -= 0.1;
+        timerText.innerText = `${Math.max(0, currentQuiz.timeLeft).toFixed(1)} С`;
+        const pct = (currentQuiz.timeLeft / 15.0) * 100;
+        timerBar.style.width = `${Math.max(0, pct)}%`;
+
+        if (currentQuiz.timeLeft <= 0) {
+          clearInterval(quizCountdownTimer);
+          onQuizTimeout();
+        }
+      }, 100);
+    }
+
+    function closeQuizTerminal() {
+      clearInterval(quizCountdownTimer);
+      currentQuiz = null;
+      const modal = document.getElementById('quizTerminalModal');
+      modal.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+      modal.classList.remove('opacity-100', 'scale-100');
+    }
+
+    function submitQuizAnswer(idx) {
+      if (!currentQuiz) return;
+      clearInterval(quizCountdownTimer);
+
+      const isCorrect = idx === currentQuiz.data.ans;
+      const buttons = document.getElementById('quizAnswersGrid').children;
+
+      if (isCorrect) {
+        audio.playShieldAbsorb();
+        combat.score += 10;
+        spawnHUDNotice('+10 БАЛЛОВ!', 'text-emerald-400');
+        addTacticalLog(`Телеметрия подтверждена (+10 баллов). Счет: ${combat.score}`, 'kill');
+        if (buttons[idx]) buttons[idx].className = 'p-3 rounded-xl text-left bg-emerald-950 border border-emerald-400 text-emerald-200 flex items-center justify-between shadow-[0_0_20px_rgba(16,185,129,0.5)]';
+      } else {
+        audio.playLaserShot();
+        combat.score = Math.max(0, combat.score - 5);
+        spawnHUDNotice('-5 БАЛЛОВ!', 'text-rose-400');
+        addTacticalLog(`Ошибка в пакете данных (-5 баллов). Верный ответ: "${currentQuiz.data.opts[currentQuiz.data.ans]}".`, 'alert');
+        if (buttons[idx]) buttons[idx].className = 'p-3 rounded-xl text-left bg-rose-950 border border-rose-400 text-rose-200 flex items-center justify-between shadow-[0_0_20px_rgba(239,68,68,0.5)]';
+      }
+
+      document.getElementById('scoreReadout').innerText = combat.score;
+      setTimeout(closeQuizTerminal, 1100);
+    }
+
+    function onQuizTimeout() {
+      combat.score = Math.max(0, combat.score - 5);
+      document.getElementById('scoreReadout').innerText = combat.score;
+      spawnHUDNotice('ТАЙМАУТ: -5', 'text-rose-400');
+      addTacticalLog('Канал связи оборван по таймауту (-5 баллов).', 'alert');
+      closeQuizTerminal();
+    }
+
+    /* =====================================================================
+     * 10. INPUT & CONTROLS BINDINGS
+     * ===================================================================== */
+    window.addEventListener('mousemove', (e) => {
+      audio.init();
+      const halfW = window.innerWidth / 2;
+      const halfH = window.innerHeight / 2;
+      combat.steer.targetX = (e.clientX - halfW) / halfW;
+      combat.steer.targetY = -(e.clientY - halfH) / halfH;
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      audio.init();
+      if (e.target.closest('button') || currentQuiz) return;
+      fireLaserBolt();
+    });
+
+    const keyStates = {};
+    window.addEventListener('keydown', (e) => {
+      audio.init();
+      keyStates[e.code] = true;
+
+      if (!currentQuiz) {
+        if (e.code === 'Space') fireLaserBolt();
+        if (e.code === 'KeyQ') activateQuantumShield();
+        if (e.code === 'KeyW') toggleWarpEngines();
+        if (e.code === 'KeyE') openQuizTerminal();
+        if (e.code === 'KeyR') solarRecharge();
+        // Power Grid Shortcuts
+        if (e.code === 'Digit1') setPowerGridMode('ENG');
+        if (e.code === 'Digit2') setPowerGridMode('SHD');
+        if (e.code === 'Digit3') setPowerGridMode('SNS');
+        if (e.code === 'Digit0') setPowerGridMode('BALANCED');
+      } else {
+        if (['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) {
+          submitQuizAnswer(parseInt(e.code.replace('Digit', '')) - 1);
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keyStates[e.code] = false;
+    });
+
+    // UI Click Event Listeners
+    document.getElementById('fireCannonsBtn').onclick = fireLaserBolt;
+    document.getElementById('shieldBarrierBtn').onclick = activateQuantumShield;
+    document.getElementById('warpDriveToggleBtn').onclick = toggleWarpEngines;
+    document.getElementById('spaceCommsQuizBtn').onclick = openQuizTerminal;
+    document.getElementById('solarSiphonBtn').onclick = solarRecharge;
+    document.getElementById('closeQuizModalBtn').onclick = closeQuizTerminal;
+
+    // Pilot Guide Modal
+    const guideDlg = document.getElementById('pilotGuideDialog');
+    document.getElementById('helpGuideBtn').onclick = () => {
+      guideDlg.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+      guideDlg.classList.add('opacity-100', 'scale-100');
+    };
+    const closeGuide = () => {
+      guideDlg.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+      guideDlg.classList.remove('opacity-100', 'scale-100');
+    };
+    document.getElementById('closeGuideDialogBtn').onclick = closeGuide;
+    document.getElementById('confirmGuideDialogBtn').onclick = closeGuide;
+
+    // Audio Mute Toggle
+    document.getElementById('audioToggleBtn').onclick = () => {
+      const isMuted = audio.toggleMute();
+      const icon = document.getElementById('audioIcon');
+      icon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
+      lucide.createIcons();
+      addTacticalLog(`Аудиосистема: ${isMuted ? 'ЗВУК ВЫКЛ' : 'ЗВУК ВКЛ'}`, 'info');
+    };
+
+    // Reset Mission
+    document.getElementById('resetCombatBtn').onclick = () => {
+      combat.fuel = 100;
+      combat.distance = 0;
+      combat.score = 0;
+      combat.warpEngines = true;
+      combat.shieldBarrier = false;
+      document.getElementById('scoreReadout').innerText = '0';
+      asteroidPool.forEach(recycleAsteroid);
+      updateFuelUI();
+      updateShieldUI();
+      setPowerGridMode('BALANCED');
+      addTacticalLog('Боевые системы перезагружены в исходное состояние.', 'info');
+    };
+
+    /* =====================================================================
+     * 11. TACTICAL RADAR CANVAS
+     * ===================================================================== */
+    const radarCanvas = document.getElementById('radarScreenCanvas');
+    const radarCtx = radarCanvas.getContext('2d');
+
+    function renderLidarRadar() {
+      radarCtx.clearRect(0, 0, 160, 160);
+      const rcx = 80;
+      const rcy = 80;
+
+      // Center ship
+      radarCtx.fillStyle = '#10b981';
+      radarCtx.beginPath();
+      radarCtx.arc(rcx, rcy, 2.5, 0, Math.PI * 2);
+      radarCtx.fill();
+
+      let threats = 0;
+      const rangeMult = combat.powerGrid.sns * 3.0; // Sensor power grid multiplier
+
+      asteroidPool.forEach(ast => {
+        const bx = rcx + (ast.position.x / 1.3) * (rangeMult * 0.4);
+        const by = rcy + ((ast.position.z + 550) / 1200) * 65 * rangeMult;
+
+        if (Math.hypot(bx - rcx, by - rcy) < 74) {
+          const isDanger = ast.position.z > -260;
+          if (isDanger) threats++;
+
+          radarCtx.fillStyle = isDanger ? '#ef4444' : '#00f3ff';
+          radarCtx.beginPath();
+          radarCtx.arc(bx, by, isDanger ? 3 : 2, 0, Math.PI * 2);
+          radarCtx.fill();
+
+          if (isDanger) {
+            radarCtx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+            radarCtx.beginPath();
+            radarCtx.arc(bx, by, 5, 0, Math.PI * 2);
+            radarCtx.stroke();
+          }
+        }
+      });
+
+      document.getElementById('threatCountBadge').innerText = `УГРОЗ: ${threats}`;
+    }
+
+    /* =====================================================================
+     * 12. 60 FPS MAIN RENDER LOOP & POSTPROCESSING PASS
+     * ===================================================================== */
+    function renderFrame(now) {
+      requestAnimationFrame(renderFrame);
+
+      const dt = Math.min((now - combat.lastTime) / 1000, 0.1);
+      combat.lastTime = now;
+
+      // 60 FPS Counter
+      combat.fpsFrames++;
+      if (now - combat.fpsLastUpdate >= 1000) {
+        document.getElementById('fpsReadout').innerText = combat.fpsFrames;
+        combat.fpsFrames = 0;
+        combat.fpsLastUpdate = now;
+      }
+
+      // 1. Keyboard Maneuvers
+      if (keyStates['KeyA'] || keyStates['ArrowLeft']) combat.steer.targetX -= 1.8 * dt;
+      if (keyStates['KeyD'] || keyStates['ArrowRight']) combat.steer.targetX += 1.8 * dt;
+      if (keyStates['KeyS'] || keyStates['ArrowDown']) combat.steer.targetY -= 1.5 * dt;
+      if (keyStates['KeyW'] || keyStates['ArrowUp']) combat.steer.targetY += 1.5 * dt;
+
+      combat.steer.targetX = Math.max(-1, Math.min(1, combat.steer.targetX));
+      combat.steer.targetY = Math.max(-0.85, Math.min(0.85, combat.steer.targetY));
+
+      // Ship Inertia Easing
+      combat.steer.x += (combat.steer.targetX - combat.steer.x) * 0.08;
+      combat.steer.y += (combat.steer.targetY - combat.steer.y) * 0.08;
+
+      shipRig.position.x = combat.steer.x * 12;
+      shipRig.position.y = combat.steer.y * 7;
+      shipRig.rotation.z = -combat.steer.x * 0.55; // Roll
+      shipRig.rotation.x = -combat.steer.y * 0.35; // Pitch
+      shipRig.rotation.y = -combat.steer.x * 0.25; // Yaw
+
+      // HUD Reticle follow
+      document.getElementById('centerCrosshair').style.transform = `translate(${combat.steer.x * 40}px, ${-combat.steer.y * 30}px)`;
+
+      if (combat.shieldBarrier) {
+        shieldDome.rotation.y += 0.02;
+        shieldDome.rotation.x += 0.01;
+      }
+
+      // 2. Speed & Fuel Simulation
+      const isHyper = combat.warpEngines && combat.fuel > 0;
+      const speedMult = combat.powerGrid.eng * 3.0;
+      if (isHyper) {
+        combat.fuel = Math.max(0, combat.fuel - 1.0 * dt);
+        combat.speed = 1850 * speedMult;
+        combat.distance += Math.round(combat.speed * dt);
+        updateFuelUI();
+      } else {
+        combat.speed = 220;
+        combat.distance += Math.round(combat.speed * dt);
+      }
+
+      document.getElementById('distTopReadout').innerText = `${combat.distance.toLocaleString()} КМ`;
+      document.getElementById('distValueText').innerText = combat.distance.toLocaleString();
+      document.getElementById('speedValueText').innerText = Math.round(combat.speed);
+
+      // 3. Laser Bolt Projectiles
+      for (let i = 0; i < LASER_POOL_SIZE; i++) {
+        const bolt = laserPool[i];
+        if (bolt.active) {
+          bolt.position.z -= 650 * dt;
+
+          // Check hit against all active asteroids
+          for (let j = 0; j < ASTEROID_COUNT; j++) {
+            const ast = asteroidPool[j];
+            if (ast.position.z > -600 && Math.abs(ast.position.z - bolt.position.z) < 10) {
+              const dist = bolt.position.distanceTo(ast.position);
+              if (dist < (ast.radius + 1.2)) {
+                destroyAsteroid(ast);
+                bolt.active = false;
+                bolt.visible = false;
+                break;
+              }
+            }
+          }
+
+          // Despawn laser bolt past view
+          if (bolt.position.z < -800) {
+            bolt.active = false;
+            bolt.visible = false;
+          }
+        }
+      }
+
+      // 4. Asteroid 3D Simulation & Screen Target Lock Box
+      const astSpeed = (isHyper ? 360 : 120) * speedMult;
+      let closestAst = null;
+      let closestZ = -9999;
+      let alertTriggered = false;
+
+      for (let i = 0; i < ASTEROID_COUNT; i++) {
+        const ast = asteroidPool[i];
+        ast.position.z += astSpeed * dt;
+        ast.rotation.x += ast.rotX;
+        ast.rotation.y += ast.rotY;
+        ast.rotation.z += ast.rotZ;
+
+        if (ast.position.z > closestZ) {
+          closestZ = ast.position.z;
+          closestAst = ast;
+        }
+
+        // Collision with ship
+        if (ast.position.z > -8 && ast.position.z < 8) {
+          const distToShip = shipRig.position.distanceTo(ast.position);
+          if (distToShip < (ast.radius + 3.2)) {
+            handleShipCollision(ast);
+            continue;
+          }
+        }
+
+        if (ast.position.z > -280 && Math.abs(ast.position.x - shipRig.position.x) < 18) {
+          alertTriggered = true;
+        }
+
+        if (ast.position.z > 35) {
+          recycleAsteroid(ast);
+        }
+      }
+
+      // 3D Target Lock Box Dynamic CSS Positioning
+      const lockBox = document.getElementById('targetLockBox');
+      if (closestAst && closestAst.position.z > -400 && closestAst.position.z < -30) {
+        const p = closestAst.position.clone().project(camera);
+        if (p.z < 1) {
+          const screenX = (p.x + 1) / 2 * window.innerWidth;
+          const screenY = (-p.y + 1) / 2 * window.innerHeight;
+          lockBox.style.left = `${screenX}px`;
+          lockBox.style.top = `${screenY}px`;
+          lockBox.style.opacity = '1';
+          document.getElementById('targetLockDist').innerText = `${Math.round(Math.abs(closestAst.position.z))}M`;
+        } else {
+          lockBox.style.opacity = '0';
+        }
+      } else {
+        lockBox.style.opacity = '0';
+      }
+
+      // Proximity Alert Banner
+      const colAlert = document.getElementById('collisionAlertBanner');
+      if (alertTriggered) {
+        colAlert.classList.remove('opacity-0', 'scale-90');
+        colAlert.classList.add('opacity-100', 'scale-100');
+      } else {
+        colAlert.classList.add('opacity-0', 'scale-90');
+        colAlert.classList.remove('opacity-100', 'scale-100');
+      }
+
+      // 5. Particle Physics Update
+      let needParticleUpdate = false;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const vel = particleVelocities[i];
+        if (vel.life > 0) {
+          vel.life -= dt;
+          particlePositions[i * 3] += vel.x * dt;
+          particlePositions[i * 3 + 1] += vel.y * dt;
+          particlePositions[i * 3 + 2] += vel.z * dt;
+
+          vel.x *= 0.96;
+          vel.y *= 0.96;
+          vel.z *= 0.96;
+
+          needParticleUpdate = true;
+          if (vel.life <= 0) {
+            particlePositions[i * 3 + 1] = -9999;
+          }
+        }
+      }
+      if (needParticleUpdate) {
+        particleGeo.attributes.position.needsUpdate = true;
+      }
+
+      // 6. Warp Starfield
+      const starSpeed = (isHyper ? 820 : 130) * speedMult;
+      const sPos = starPointsGeo.attributes.position.array;
+      const wPos = warpLinesGeo.attributes.position.array;
+      const streakLen = isHyper ? 45 : 3;
+
+      for (let i = 0; i < STAR_COUNT; i++) {
+        sPos[i * 3 + 2] += starSpeed * dt;
+        if (sPos[i * 3 + 2] > 20) {
+          sPos[i * 3 + 2] = -1200;
+          sPos[i * 3] = (Math.random() - 0.5) * 450;
+          sPos[i * 3 + 1] = (Math.random() - 0.5) * 350;
+        }
+
+        wPos[i * 6] = sPos[i * 3];
+        wPos[i * 6 + 1] = sPos[i * 3 + 1];
+        wPos[i * 6 + 2] = sPos[i * 3 + 2];
+
+        wPos[i * 6 + 3] = sPos[i * 3];
+        wPos[i * 6 + 4] = sPos[i * 3 + 1];
+        wPos[i * 6 + 5] = sPos[i * 3 + 2] - streakLen;
+      }
+      starPointsGeo.attributes.position.needsUpdate = true;
+      warpLinesGeo.attributes.position.needsUpdate = true;
+
+      // 7. Tactical Radar Draw
+      renderLidarRadar();
+
+      // 8. TWO-PASS RENDER: 3D Scene -> RenderTarget -> Fullscreen Postprocessing Quad
+      renderer.setRenderTarget(renderTarget);
+      renderer.render(scene, camera);
+
+      // Update Postprocessing Uniforms
+      postShaderMaterial.uniforms.uTime.value = now * 0.001;
+      postShaderMaterial.uniforms.uAberration.value = combat.aberrationAmount;
+      postShaderMaterial.uniforms.uShockwaveCenter.value.copy(combat.shockwave.center);
+      postShaderMaterial.uniforms.uShockwaveProgress.value = combat.shockwave.progress;
+      postShaderMaterial.uniforms.uShockwaveStrength.value = combat.shockwave.strength;
+
+      renderer.setRenderTarget(null);
+      renderer.render(postScene, postCamera);
+    }
+
+    /* =====================================================================
+     * 13. INITIALIZATION
+     * ===================================================================== */
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+      updateFuelUI();
+      updateShieldUI();
+      setPowerGridMode('BALANCED');
+
+      addTacticalLog('Боевой терминал ASTRON-V инициализирован.', 'info');
+      addTacticalLog('Three.js Custom Postprocessing: Aberration, Scanlines, Shockwave активны.', 'info');
+      addTacticalLog('Орудия спаренных пушек заряжены. Стрельба: [ПРОБЕЛ] или [ЛКМ].', 'kill');
+      addTacticalLog('Управление питанием: клавиши [1], [2], [3], [0].', 'shield');
+
+      requestAnimationFrame(renderFrame);
+    });
+  </script>
+</body>
+</html>
